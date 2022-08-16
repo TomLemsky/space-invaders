@@ -63,7 +63,7 @@ void Emulator::run(){
 void Emulator::unimplemented_instruction(){
     printf("\n\nInstruction 0x%02x at location 0x%04x is unimplemented!\n\n", this->memory[this->pc], this->pc);
     fflush(stdout); // flush last printed message to stdout before the exception stops the program
-    throw std::runtime_error("Unimplemented instruction!");
+    //throw std::runtime_error("Unimplemented instruction!");
 }
 
 void Emulator::set_flags_no_cy(uint16_t result){
@@ -96,6 +96,8 @@ uint8_t Emulator::read_memory(uint8_t adress_a, uint8_t adress_b){
 }
 
 void Emulator::write_memory(uint16_t adress, uint8_t data){
+    if(adress < 0x2000) return; // don't overwrite ROM (0000-1FFF)
+    adress = adress & (0x4000-1); // mirror adresses above 0x4000
     this->memory[adress] = data;
 }
 
@@ -109,7 +111,7 @@ void Emulator::call(uint16_t adress, uint8_t instruction_length){
     write_memory(this->sp-1, (temp >> 8) & 0xFF); // store high byte
     write_memory(this->sp-2, temp & 0xFF);        // store low byte
     this->sp -= 2;                               // decrement stack pointer by two bytes
-    this->pc = (this->memory[this->pc+2] << 8) | this->memory[this->pc+1];   // set program counter to called adress
+    this->pc = adress; //(this->memory[this->pc+2] << 8) | this->memory[this->pc+1];   // set program counter to called adress
     instruction_length = 0;                      // don't increment the new adress
 }
 
@@ -1314,6 +1316,7 @@ void Emulator::execute_next_instruction(){
             break;
         case 0xDB:
             DEBUG_PRINT("IN    #$%02x", code[pc+1]);
+
             // TODO: Implement input later!
             instruction_length = 2;
             break;

@@ -54,6 +54,7 @@ class Emulator
         struct flags_st flags;
         bool interrupt_enabled; // is interrupt enabled?
 
+
         void execute_next_instruction();
         void unimplemented_instruction();
         void set_flags_no_cy(uint16_t result);
