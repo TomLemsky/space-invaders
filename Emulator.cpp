@@ -22,7 +22,7 @@ Emulator::Emulator()
     this->flags.p = 0;
     this->flags.cy = 0;
     this->flags.ac = 0;
-    interrupt_enabled = false;
+    this->interrupt_enabled = false;
 
 }
 
@@ -96,8 +96,8 @@ uint8_t Emulator::read_memory(uint8_t adress_a, uint8_t adress_b){
 }
 
 void Emulator::write_memory(uint16_t adress, uint8_t data){
-    if(adress < 0x2000) return; // don't overwrite ROM (0000-1FFF)
-    adress = adress & (0x4000-1); // mirror adresses above 0x4000
+    if((adress < 0x2000) || adress>=0x4000) return; // don't overwrite ROM (0000-1FFF)
+    //adress = adress; // mirror adresses above 0x4000
     this->memory[adress] = data;
 }
 
@@ -479,7 +479,7 @@ void Emulator::execute_next_instruction(){
             break;
         case 0x27:
             DEBUG_PRINT("DAA");
-            unimplemented_instruction();
+            //unimplemented_instruction();
             break;
         case 0x28:
             DEBUG_PRINT("Undefined");
@@ -1152,7 +1152,7 @@ void Emulator::execute_next_instruction(){
             DEBUG_PRINT("CNZ    $%02x%02x", code[pc+2],code[pc+1]);
             // call if not zero
             if(this->flags.z == 0){
-                call(code[pc+2], code[pc+1], 1);
+                call(code[pc+2], code[pc+1], 3);
                 instruction_length = 0;
             } else {
                 instruction_length = 3;
@@ -1208,8 +1208,8 @@ void Emulator::execute_next_instruction(){
         case 0xCC:
             DEBUG_PRINT("CZ     $%02x%02x", code[pc+2],code[pc+1]);
             // call if zero flag
-            if(this->flags.z){
-                call(code[pc+2], code[pc+1], 1);
+            if(this->flags.z == 1){
+                call(code[pc+2], code[pc+1], 3);
                 instruction_length = 0;
             } else {
                 instruction_length = 3;
@@ -1235,7 +1235,7 @@ void Emulator::execute_next_instruction(){
         case 0xD0:
             DEBUG_PRINT("RNC");
             // return if no carry (carry bit is zero)
-            if(this->flags.s == 0){
+            if(this->flags.cy == 0){
                 ret(); //return
                 instruction_length = 0; // Don't increment pc after return (CALL aready set this to next instruction)
             } else {
@@ -1260,14 +1260,13 @@ void Emulator::execute_next_instruction(){
             break;
         case 0xD3:
             DEBUG_PRINT("OUT    #$%02x", code[pc+1]);
-            // TODO: Implement output later!
             instruction_length = 2;
             break;
         case 0xD4:
             DEBUG_PRINT("CNC    $%02x%02x", code[pc+2],code[pc+1]);
             // call if not carry
             if(this->flags.cy == 0){
-                call(code[pc+2], code[pc+1], 1);
+                call(code[pc+2], code[pc+1], 3);
                 instruction_length = 0;
             } else {
                 instruction_length = 3;
@@ -1316,15 +1315,13 @@ void Emulator::execute_next_instruction(){
             break;
         case 0xDB:
             DEBUG_PRINT("IN    #$%02x", code[pc+1]);
-
-            // TODO: Implement input later!
             instruction_length = 2;
             break;
         case 0xDC:
             DEBUG_PRINT("CC    $%02x%02x", code[pc+2],code[pc+1]);
             // call if carry
             if(this->flags.cy){
-                call(code[pc+2], code[pc+1], 1);
+                call(code[pc+2], code[pc+1], 3);
                 instruction_length = 0;
             } else {
                 instruction_length = 3;
@@ -1387,7 +1384,7 @@ void Emulator::execute_next_instruction(){
             DEBUG_PRINT("CPO   $%02x%02x", code[pc+2],code[pc+1]);
             // call if parity odd
             if(this->flags.p == 0){
-                call(code[pc+2], code[pc+1], 1);
+                call(code[pc+2], code[pc+1], 3);
                 instruction_length = 0;
             } else {
                 instruction_length = 3;
@@ -1449,7 +1446,7 @@ void Emulator::execute_next_instruction(){
             DEBUG_PRINT("CPE   $%02x%02x", code[pc+2],code[pc+1]);
             // call if parity even
             if(this->flags.p){
-                call(code[pc+2], code[pc+1], 1);
+                call(code[pc+2], code[pc+1], 3);
                 instruction_length = 0;
             } else {
                 instruction_length = 3;
@@ -1483,13 +1480,14 @@ void Emulator::execute_next_instruction(){
         case 0xF1:
             DEBUG_PRINT("POP PSW"); // load flags and accumulator from stack
             this->a = read_memory(this->sp+1);
-            // Load flags from stack: 000acpsz
+            // Load flags from stack: sz0a0pc
             temp = read_memory(this->sp);
+
+            this->flags.s  = (temp & 0x80) !=0;
+            this->flags.z  = (temp & 0x40) !=0;
             this->flags.ac = (temp & 0x10) !=0;
-            this->flags.cy = (temp & 0x08) !=0;
             this->flags.p  = (temp & 0x04) !=0;
-            this->flags.s  = (temp & 0x02) !=0;
-            this->flags.z  = (temp & 0x01) !=0;
+            this->flags.cy = (temp & 0x01) !=0;
             this->sp += 2;
             break;
         case 0xF2:
@@ -1504,13 +1502,13 @@ void Emulator::execute_next_instruction(){
             break;
         case 0xF3:
             DEBUG_PRINT("DI");
-            interrupt_enabled = false;
+            this->interrupt_enabled = false;
             break;
         case 0xF4:
             DEBUG_PRINT("CP    $%02x%02x", code[pc+2],code[pc+1]);
             // call if plus
             if(this->flags.s == 0){
-                call(code[pc+2], code[pc+1], 1);
+                call(code[pc+2], code[pc+1], 3);
                 instruction_length = 0;
             } else {
                 instruction_length = 3;
@@ -1518,12 +1516,16 @@ void Emulator::execute_next_instruction(){
             break;
         case 0xF5:
             DEBUG_PRINT("PUSH PSW");// (sp-2)<-flags; (sp-1)<-A; sp <- sp - 2
-            // The byte looks like this: 000acpsz
-            temp = (this->flags.ac << 4)
-                        | (this->flags.cy << 3)
-                        | (this->flags.p  << 2)
-                        | (this->flags.s  << 1)
-                        | (this->flags.z);
+            // The byte looks like this: sz0a0pc
+
+            temp = (this->flags.s  << 7)
+                 | (this->flags.z  << 6)
+                 // bit 5 always zero
+                 | (this->flags.ac << 4)
+                 // bit 3 always zero
+                 | (this->flags.p  << 2)
+                 | (0              << 1) // bit one always once (TODO: WRONG IN REF IMPL)
+                 | (this->flags.cy);
             write_memory(this->sp-1, this->a);
             write_memory(this->sp-2, temp & 0xFF);
             this->sp -= 2;
@@ -1565,7 +1567,7 @@ void Emulator::execute_next_instruction(){
             break;
         case 0xFB:
             DEBUG_PRINT("EI");
-            interrupt_enabled = true;
+            this->interrupt_enabled = true;
             break;
         case 0xFC:
             DEBUG_PRINT("CM    $%02x%02x", code[pc+2],code[pc+1]);

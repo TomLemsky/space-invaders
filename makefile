@@ -6,10 +6,10 @@ CC := g++ #clang
 # set the compiler flags
 CFLAGS := `sdl2-config --libs --cflags` -ggdb3 -O0 -Wall -lSDL2_image -lm
 # add header files here
-HDRS := Emulator.h
+HDRS := Emulator.h reference.h
 
 # add source files here
-SRCS := main.cpp Emulator.cpp #file-name.c
+SRCS := main.cpp Emulator.cpp reference.c #file-name.c
 
 # generate names of object files
 OBJS := $(SRCS:.c=.o)
