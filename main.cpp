@@ -1,4 +1,5 @@
 #include "Emulator.h"
+#include "Machine.h"
 #include "reference_implementation/8080emu.h"
 
 #include <SDL2/SDL.h>
@@ -11,6 +12,8 @@
 // Fixed amount of instructions per frame? or just more accurate clock?
 // Bundle instructions?
 // TODO: std::chrono::high_resolution_clock for instructions or bundle multiple instr
+
+// HInts: Can't shoot. Reset after alien's shot at half distance. Coin amounts change when button pressed
 
 int WIDTH  = 256;
 int HEIGHT = 224;
@@ -85,8 +88,20 @@ uint8_t keyToByte(SDL_Keysym key){
 }
 
 
+int main(int argc, char *argv[]){
+    Machine machine;
+    machine.run();
+
+}
+
+
+/*
 int main(int argc, char *argv[])
 {
+    Machine machine;
+    machine.run();
+    return 0;
+
     uint32_t *textureBuffer = new uint32_t[ WIDTH * HEIGHT ];
 
     uint32_t t_lastInterrupt = SDL_GetTicks();
@@ -128,7 +143,7 @@ int main(int argc, char *argv[])
     uint8_t shift1; // higher byte of shift register
     uint8_t shift_amount;
 
-    uint8_t button_port = 0x09; // single player, CREDIT, bit 3 is always 1
+    uint8_t button_port = 0x00; //0x09; // single player, CREDIT, bit 3 is always 1
 
     while(1){
         if(emu.memory[emu.pc] == 0xd3){ // OUT instruction
@@ -164,8 +179,9 @@ int main(int argc, char *argv[])
                     }
                     break;
             }
+            state->a = emu.a;
         }
-        state->a = emu.a;
+
 
         emu.execute_next_instruction();
         Emulate8080Op(state); // reference_implementation
@@ -202,9 +218,9 @@ int main(int argc, char *argv[])
              first_half = true;
              updateScreen(renderer, texture, textureBuffer, emu.memory.get());
         }
+
         // Compare ref impl to my impl
         //if (1){printf("hello");} else
-        state->a = emu.a;
         if(state->pc!= emu.pc){
             printf("Reference pc: %04X  My pc: %04X",state->pc,emu.pc);
             printf("\nError in pc!\n");
@@ -257,3 +273,4 @@ int main(int argc, char *argv[])
     }
     return 0;
 }
+//*/

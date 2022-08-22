@@ -63,7 +63,7 @@ void Emulator::run(){
 void Emulator::unimplemented_instruction(){
     printf("\n\nInstruction 0x%02x at location 0x%04x is unimplemented!\n\n", this->memory[this->pc], this->pc);
     fflush(stdout); // flush last printed message to stdout before the exception stops the program
-    //throw std::runtime_error("Unimplemented instruction!");
+    throw std::runtime_error("Unimplemented instruction!");
 }
 
 void Emulator::set_flags_no_cy(uint16_t result){
@@ -96,8 +96,8 @@ uint8_t Emulator::read_memory(uint8_t adress_a, uint8_t adress_b){
 }
 
 void Emulator::write_memory(uint16_t adress, uint8_t data){
-    if((adress < 0x2000) || adress>=0x4000) return; // don't overwrite ROM (0000-1FFF)
-    //adress = adress; // mirror adresses above 0x4000
+    //if((adress < 0x2000) || adress>=0x4000) return; // don't overwrite ROM (0000-1FFF)
+    //adress = adress & 0x0FFF; // mirror adresses above 0x4000
     this->memory[adress] = data;
 }
 
@@ -479,7 +479,15 @@ void Emulator::execute_next_instruction(){
             break;
         case 0x27:
             DEBUG_PRINT("DAA");
-            //unimplemented_instruction();
+            if ((this->a & 0x0F) > 9){
+                this->a += 6;
+            }
+            // (this->flags.cy==1) ||
+            if ( ((this->a & 0xF0) > 0x90)){
+                temp = (uint16_t) this->a + 0x60;
+                set_flags(temp);
+                this->a = temp & 0xFF;
+            }
             break;
         case 0x28:
             DEBUG_PRINT("Undefined");
