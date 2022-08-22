@@ -1,8 +1,8 @@
 #include "Machine.h"
 
-Machine::Machine()
+Machine::Machine(const std::string& filename)
 {
-    emu.load_program_from_file("invaders.bin");
+    emu.load_program_from_file(filename);
 
     int n = this->screen_width * this->screen_height;
     this->textureBuffer = make_unique<uint32_t[]>(n);
@@ -14,7 +14,7 @@ Machine::Machine()
     this->win = SDL_CreateWindow("GAME",
                                        SDL_WINDOWPOS_CENTERED,
                                        SDL_WINDOWPOS_CENTERED,
-                                       this->screen_height, this->screen_width, 0);
+                                       this->window_width, this->window_height, 0);
 
     this->renderer = SDL_CreateRenderer(this->win, -1,
         SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
@@ -51,32 +51,37 @@ void Machine::updateScreen(){
     uint16_t current_loc;
 
     int n = this->screen_width * this->screen_height;
-    uint32_t *textureBuffer = new uint32_t[ n ];
+
 
     uint8_t* emumem = this->emu.memory.get();
     for(int y=0; y < this->screen_height; y++){
         for(int x = 0; x < byte_width; x++){
             current_loc = framebuffer_loc + byte_width*y + x;
             for(int b=0; b<8;b++){
-                //printf("\n %d,%d,%d: %04X",y,x,b,current_loc);
-                textureBuffer[n-(this->screen_height-y)-this->screen_height*(8*x+b)] = ((emumem[current_loc]>>b) & 1)? 0xFF0000 : 0x0000FF;
+                // the screen is the VRAM rotated 90 degrees counterclockwise
+                int screen_location = n-(this->screen_height-y)-this->screen_height*(8*x+b);
+                uint32_t color = ((emumem[current_loc]>>b) & 1)? 0xFF0000 : 0x0000FF;
+                this->textureBuffer[screen_location] = color;
             }
         }
     }
 
     SDL_Rect texture_rect;
-    texture_rect.x=0;
-    texture_rect.y=0;
-    texture_rect.w=this->screen_height;
-    texture_rect.h=this->screen_width;
+    texture_rect.x = 0;
+    texture_rect.y = 0;
+    texture_rect.w = this->screen_height;
+    texture_rect.h = this->screen_width;
 
+    SDL_Rect window_rect;
+    window_rect.x = 0;
+    window_rect.y = 0;
+    window_rect.w = this->window_width;
+    window_rect.h = this->window_height;
 
-    SDL_UpdateTexture(this->texture, NULL, textureBuffer, this->screen_height*sizeof(uint32_t));
-
+    SDL_UpdateTexture(this->texture, NULL, textureBuffer.get(), this->screen_height*sizeof(uint32_t));
     SDL_RenderClear(this->renderer);
-    SDL_RenderCopy(this->renderer, this->texture, NULL, &texture_rect);
+    SDL_RenderCopy(this->renderer, this->texture, &texture_rect, &window_rect);
     SDL_RenderPresent(this->renderer);
-    //exit(1);
 }
 
 void Machine::interrupt(int num){
@@ -86,10 +91,7 @@ void Machine::interrupt(int num){
 }
 
 void Machine::run(){
-    int instr_per_frame  = 2000000 / 60; // 2MHz CPU divided by 60Hz screen
-    int millis_per_frame = 1000 / 60;
 
-    uint32_t t_lastFrame = SDL_GetTicks();
     uint32_t t_lastInterrupt = SDL_GetTicks();
     bool first_half = true;
     bool exit_clicked = false;
@@ -124,40 +126,6 @@ void Machine::run(){
         }
     }
     return;
-
-    // while(1){
-    //     t_lastFrame = SDL_GetTicks();
-    //
-    //     for(int i; i < (instr_per_frame/2); i++){
-    //         execute_next_instruction();
-    //     }
-    //     SDL_Delay(millis_per_frame/2);
-    //     interrupt(1);
-    //     for(int i; i < (instr_per_frame/2); i++){
-    //         execute_next_instruction();
-    //         printf("%d\n",millis_per_frame);
-    //     }
-    //     SDL_Delay(millis_per_frame/2);
-    //     interrupt(2);
-    //
-    //     updateScreen();
-    //
-    //
-    //
-    //     SDL_PollEvent(&this->event);
-    //     switch(this->event.type){
-    //         case SDL_QUIT:
-    //             exit(0);
-    //             break;
-    //         case SDL_KEYDOWN:
-    //             this->button_port = this->button_port | keyToByte(this->event.key.keysym);
-    //             break;
-    //         case SDL_KEYUP:
-    //             this->button_port = this->button_port & (~keyToByte(this->event.key.keysym));
-    //             break;
-    //     }
-    //
-    // }
 }
 
 void Machine::execute_next_instruction(){
@@ -188,7 +156,7 @@ void Machine::execute_next_instruction(){
             case 1: // Button presses here
                 this->emu.a = this->button_port;
                 break;
-            case 2: // settings and player 2 controls
+            case 2: // settings and player 2 controls (Unimplemented)
                 this->emu.a = 0x0;
                 break;
             case 3:{

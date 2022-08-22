@@ -19,6 +19,7 @@ typedef struct flags_st {
     uint8_t pad:3; // padding to a byte?
 } flags_st;
 
+
 class Emulator
 {
     public:
@@ -31,12 +32,10 @@ class Emulator
 
         void load_program_from_file(string filename);
         void run();
+        void execute_next_instruction();
+        void call(uint16_t adress, uint8_t instruction_length);
+        void call(uint8_t adress1, uint8_t adress2, uint8_t instruction_length);
 
-
-//    protected:
-
-//    private:
-        //
         unsigned int RAM_size = 0x4000;
 
         //Registers
@@ -50,12 +49,12 @@ class Emulator
         uint16_t sp = 0; // stack pointer
         uint16_t pc = 0; // program counter
         unique_ptr<uint8_t[]> memory; // pointer to RAM
-        // int_enable???
         struct flags_st flags;
         bool interrupt_enabled; // is interrupt enabled?
 
 
-        void execute_next_instruction();
+    private:
+        // internal function to implement opcodes
         void unimplemented_instruction();
         void set_flags_no_cy(uint16_t result);
         void set_flags(uint16_t result);
@@ -64,8 +63,6 @@ class Emulator
         uint8_t read_memory(uint8_t adress_a, uint8_t adress_b);
         void write_memory(uint16_t adress, uint8_t data);
         void write_memory(uint8_t adress_a, uint8_t adress_b, uint8_t data);
-        void call(uint16_t adress, uint8_t instruction_length);
-        void call(uint8_t adress1, uint8_t adress2, uint8_t instruction_length);
         void ret();
 };
 

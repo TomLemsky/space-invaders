@@ -1,6 +1,6 @@
 #include "Emulator.h"
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #define DEBUG_PRINT printf
@@ -11,12 +11,12 @@
 
 Emulator::Emulator()
 {
-    this->pc = 0;
     //create memory and initialize with zero
     this->memory = make_unique<unsigned char[]>(this->RAM_size);
     for(unsigned int i=0; i < this->RAM_size; i++){
         this->memory[i] = 0;
     }
+    this->pc = 0;
     this->flags.z = 0;
     this->flags.s = 0;
     this->flags.p = 0;
@@ -28,7 +28,7 @@ Emulator::Emulator()
 
 Emulator::~Emulator()
 {
-    //dtor
+    // nothing to delete. Smart pointer deletes memory automatically
 }
 
 
@@ -43,9 +43,6 @@ void Emulator::load_program_from_file(string filename)
     int filesize = ftell(fp);
     fseek(fp, 0L, SEEK_SET);
 
-    //this->machinecode = make_unique<unsigned char[]>(this->filesize);
-    //unsigned char *buffer = (unsigned char*) malloc(filesize);
-
     // copy file contents into memory
     fread(this->memory.get(), sizeof(char), filesize, fp);
 
@@ -54,15 +51,15 @@ void Emulator::load_program_from_file(string filename)
 }
 
 void Emulator::run(){
-    //this->filesize = 100;
-    while(1){ //this->pc < 10){
+    while(1){
         execute_next_instruction();
     }
 }
 
 void Emulator::unimplemented_instruction(){
     printf("\n\nInstruction 0x%02x at location 0x%04x is unimplemented!\n\n", this->memory[this->pc], this->pc);
-    fflush(stdout); // flush last printed message to stdout before the exception stops the program
+    // flush last printed messages to stdout before the exception stops the program
+    fflush(stdout);
     throw std::runtime_error("Unimplemented instruction!");
 }
 
@@ -70,15 +67,12 @@ void Emulator::set_flags_no_cy(uint16_t result){
     this->flags.z = (result & 0xff) == 0; // zero
     this->flags.s = (result & 0x80) != 0; // sign
 
-    // calculate parity = even number of 1s?
-    // Could be optimized with bitmagic, shifting and xoring nibbles
-    int sum = 0;
-    uint8_t bitmask = 0x01;
-    for(int i=0; i < 8; i++){
-        sum += ((result & bitmask) != 0); // if bit is set add one
-        bitmask = bitmask << 1;           // set bitmask to next bit
-    }
-    this->flags.p = (sum & 0x01) == 0;    // sum is even if last bit not set
+    // calculate parity = even number of 1s
+    uint8_t temp = result & 0xFF;
+    temp ^= temp >> 4; // xor first 4 bits with last 4 bits
+    temp ^= temp >> 2; // xor last 2 bits with previous 2 bits
+    temp ^= temp >> 1; // xor last two bits together
+    this->flags.p = (temp & 0x01) == 0;    // sum is even if last bit not set
 }
 
 void Emulator::set_flags(uint16_t result){
@@ -96,8 +90,9 @@ uint8_t Emulator::read_memory(uint8_t adress_a, uint8_t adress_b){
 }
 
 void Emulator::write_memory(uint16_t adress, uint8_t data){
-    //if((adress < 0x2000) || adress>=0x4000) return; // don't overwrite ROM (0000-1FFF)
-    //adress = adress & 0x0FFF; // mirror adresses above 0x4000
+    // don't overwrite ROM (0000-1FFF) or out of memory
+    adress = adress & 0x3FFF; // mirror adresses above 0x4000
+    if(adress < 0x2000) return;
     this->memory[adress] = data;
 }
 
@@ -108,21 +103,24 @@ void Emulator::write_memory(uint8_t adress_a, uint8_t adress_b, uint8_t data){
 
 void Emulator::call(uint16_t adress, uint8_t instruction_length){
     uint16_t temp = this->pc+instruction_length; // return address is the byte after the call instruction
-    write_memory(this->sp-1, (temp >> 8) & 0xFF); // store high byte
-    write_memory(this->sp-2, temp & 0xFF);        // store low byte
+    write_memory(this->sp-1, (temp >> 8) & 0xFF);// store high byte
+    write_memory(this->sp-2, temp & 0xFF);       // store low byte
     this->sp -= 2;                               // decrement stack pointer by two bytes
-    this->pc = adress; //(this->memory[this->pc+2] << 8) | this->memory[this->pc+1];   // set program counter to called adress
+    this->pc = adress;                           // set program counter to called adress
     instruction_length = 0;                      // don't increment the new adress
 }
 
 void Emulator::call(uint8_t adress1, uint8_t adress2, uint8_t instruction_length){
-    call((adress1 << 8) | adress2, instruction_length); // combine two 8bit adresses into 16bit and call
+    // combine two 8bit adresses into 16bit and call
+    call((adress1 << 8) | adress2, instruction_length);
 }
 
 void Emulator::ret(){
     // return to adress in stack pointer
-    this->pc = read_memory(this->sp) | (read_memory(this->sp+1) << 8); // get two byte return adress from stack
-    this->sp += 2;          // set the stack pointer back.
+    // get two byte return adress from stack
+    this->pc = read_memory(this->sp) | (read_memory(this->sp+1) << 8);
+    // set the stack pointer back.
+    this->sp += 2;
 }
 
 
@@ -131,9 +129,8 @@ void Emulator::arithmetic_instruction(){
     uint8_t opcode = read_memory(this->pc); //this->memory[this->pc];
 
     //special instruction in arithmetic block (replaces MOV M,M  [ M <- M]
-    if (opcode == 0x76){
-        unimplemented_instruction();
-        return;
+    if (opcode == 0x76){ // HLT
+        exit(0);
     }
 
     if ((opcode < 0x40) || (opcode > 0xbf)){
@@ -245,19 +242,17 @@ void Emulator::arithmetic_instruction(){
 }
 
 void Emulator::execute_next_instruction(){
-
-
     // temporary variables for briefness
     uint8_t* code = this->memory.get();
     uint16_t pc = this->pc;
 
+    // temporary variable to calculate math results and flags
+    uint32_t temp = 0;
+    // how much to increment the program counter
     int instruction_length = 1;
 
     DEBUG_PRINT("%04x ", pc);
-
     DEBUG_PRINT("  Hex: %02x       ",this->memory[this->pc]);
-
-    uint32_t temp = 0; // temporary variable to calculate math results and flags
 
     switch(code[pc]){
         case 0x00:
@@ -833,7 +828,7 @@ void Emulator::execute_next_instruction(){
             break;
         case 0x76:
             DEBUG_PRINT("HLT");
-            unimplemented_instruction();
+            exit(0); // halt = end program
             break;
         case 0x77:
             DEBUG_PRINT("MOV    M,A");
@@ -1524,7 +1519,7 @@ void Emulator::execute_next_instruction(){
             break;
         case 0xF5:
             DEBUG_PRINT("PUSH PSW");// (sp-2)<-flags; (sp-1)<-A; sp <- sp - 2
-            // The byte looks like this: sz0a0pc
+            // The byte looks like this: sz0a0p1c
 
             temp = (this->flags.s  << 7)
                  | (this->flags.z  << 6)
@@ -1532,7 +1527,7 @@ void Emulator::execute_next_instruction(){
                  | (this->flags.ac << 4)
                  // bit 3 always zero
                  | (this->flags.p  << 2)
-                 | (0              << 1) // bit one always once (TODO: WRONG IN REF IMPL)
+                 | (1              << 1) // bit one always once
                  | (this->flags.cy);
             write_memory(this->sp-1, this->a);
             write_memory(this->sp-2, temp & 0xFF);
