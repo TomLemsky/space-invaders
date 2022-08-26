@@ -2,7 +2,7 @@
 
 ![Space Invaders Gameplay](gameplay.gif)
 
-My emulator of the original Space Invaders arcade machine by Taito, written in C++ and using SDL2 for display and control. It includes a complete emulator of the Intel 8080 CPU, which has been tested against [kpmiller's reference implementation](https://github.com/kpmiller/emulator101/blob/master/CocoaPart7-Threading/8080emu.c). It can also play other games on the same hardware such as variations like [Alien Invasion](http://adb.arcadeitalia.net/dettaglio_mame.php?game_name=alieninv&search_id=) and [Space Attack II](https://www.arcade-museum.com/game_detail.php?game_id=9639), but only the original Space Invaders game has been thoroughly tested.
+My emulator of the original [Space Invaders arcade machine](https://en.wikipedia.org/wiki/Space_Invaders#Hardware) by Taito, written in C++ and using SDL2 for display and control. It includes a complete emulator of the Intel 8080 CPU, which has been tested against [kpmiller's reference implementation](https://github.com/kpmiller/emulator101/blob/master/CocoaPart7-Threading/8080emu.c). It can also play other games on the same hardware such as variations like [Alien Invasion](http://adb.arcadeitalia.net/dettaglio_mame.php?game_name=alieninv&search_id=) and [Space Attack II](https://www.arcade-museum.com/game_detail.php?game_id=9639), but only the original Space Invaders game has been thoroughly tested.
 
 ## References used in development
 
