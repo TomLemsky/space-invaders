@@ -9,6 +9,8 @@
 #include <thread>
 #include <string>
 
+// This class represents the arcade machine and displays video signal with SDL
+
 class Machine
 {
     public:
@@ -34,9 +36,11 @@ class Machine
         uint8_t shift1; // higher byte of shift register
         uint8_t shift_amount; // how much to shift the shift register
 
-        uint8_t button_port = 0x09; // single player, CREDIT, bit 3 is always 1
+        uint8_t out_port0 = 0x0F; // first four bits always 1, then fire, left, right
+        uint8_t out_port1 = 0x09; // player 1 controls, 1P/2P START, CREDIT, bit 3 is always 1
+        uint8_t out_port2 = 0x03; // player 2 controls, difficulty dip switches, lives: 3+2*(bit1)+(bit0)
 
-        uint8_t keyToByte(SDL_Keysym key);
+        void keyPress(SDL_Keysym key, bool key_pressed);
         void updateScreen();
         void execute_next_instruction();
         void interrupt(int num);

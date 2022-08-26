@@ -23,14 +23,10 @@ typedef struct flags_st {
 class Emulator
 {
     public:
-        //unique_ptr<unsigned char[]> machinecode;
-        //unsigned int filesize;
-        //unsigned int program_counter;
-
         Emulator();
         virtual ~Emulator();
 
-        void load_program_from_file(string filename);
+        void load_program_from_file(string filename, uint16_t location = 0);
         void run();
         void execute_next_instruction();
         void call(uint16_t adress, uint8_t instruction_length);
@@ -51,7 +47,6 @@ class Emulator
         unique_ptr<uint8_t[]> memory; // pointer to RAM
         struct flags_st flags;
         bool interrupt_enabled; // is interrupt enabled?
-
 
     private:
         // internal function to implement opcodes

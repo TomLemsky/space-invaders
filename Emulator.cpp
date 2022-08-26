@@ -8,6 +8,7 @@
 #define DEBUG_PRINT(...)
 #endif
 
+// This class emulates the Intel 8080 CPU
 
 Emulator::Emulator()
 {
@@ -32,11 +33,11 @@ Emulator::~Emulator()
 }
 
 
-void Emulator::load_program_from_file(string filename)
+void Emulator::load_program_from_file(string filename, uint16_t location)
 {
     FILE * fp = fopen(filename.c_str(), "rb");
     if(fp==NULL){
-        cout << "Please place ROM file '%s' in same directory as this executable.\n" << filename << endl;
+        cout << "Please place ROM file in same directory as this executable: " << filename << endl;
         throw std::runtime_error("ROM File not found at location ./" + filename);
     }
     fseek(fp, 0L, SEEK_END);
@@ -44,7 +45,7 @@ void Emulator::load_program_from_file(string filename)
     fseek(fp, 0L, SEEK_SET);
 
     // copy file contents into memory
-    fread(this->memory.get(), sizeof(char), filesize, fp);
+    fread(this->memory.get()+location, sizeof(char), filesize, fp);
 
     printf("Sucessfully read %d Bytes.\n", filesize);
     fclose(fp);

@@ -2,7 +2,15 @@
 
 Machine::Machine(const std::string& filename)
 {
-    emu.load_program_from_file(filename);
+    // if ROM is provided as invaders.e, invaders.h, ...
+    if(filename.back() == '.'){
+        string endings = "hgfe"; // standard file endings are "little endian"
+        for(int i=0; i<4;i++){
+            emu.load_program_from_file(filename+endings[i],0x0800*i);
+        }
+    } else {
+        emu.load_program_from_file(filename);
+    }
 
     int n = this->screen_width * this->screen_height;
     this->textureBuffer = make_unique<uint32_t[]>(n);
@@ -11,7 +19,7 @@ Machine::Machine(const std::string& filename)
         printf("error initializing SDL: %s\n", SDL_GetError());
         exit(1);
     }
-    this->win = SDL_CreateWindow("GAME",
+    this->win = SDL_CreateWindow("Space Invaders",
                                        SDL_WINDOWPOS_CENTERED,
                                        SDL_WINDOWPOS_CENTERED,
                                        this->window_width, this->window_height, 0);
@@ -29,20 +37,67 @@ Machine::~Machine()
     //delete this->textureBuffer;
 }
 
-uint8_t Machine::keyToByte(SDL_Keysym key){
+void Machine::keyPress(SDL_Keysym key, bool key_pressed){
+    // which bit to change in port 1
+    uint8_t bit_port0 = 0x00;
+    uint8_t bit_port1 = 0x00;
+    uint8_t bit_port2 = 0x00;
+
     switch(key.sym){
+        // port 0: alternative controls?
+        case SDLK_i: // fire
+            bit_port0 = 0x10; // bit 4
+            break;
+        case SDLK_j: // Left
+            bit_port0 = 0x20; // bit 5
+            break;
+        case SDLK_l: // Right
+            bit_port0 = 0x40; // bit 6
+            break;
+        // port 1: start game and player 1 controls
         case SDLK_RETURN: // Coin = ENTER
-            return 0x01; // 4 = bit 2
+            bit_port1 = 0x01; // bit 0
+            break;
+        case SDLK_2: // 2 Player start
+            bit_port1 = 0x02; // bit 1
+            break;
         case SDLK_1: // 1 Player start
-            return 0x04; // 4 = bit 2
+            bit_port1 = 0x04; // bit 2
+            break;
+        case SDLK_SPACE: // FIRE
         case SDLK_UP:
-            return 0x10; // 32 = bit 4
+            bit_port1 = 0x10; // bit 4
+            break;
         case SDLK_LEFT:
-            return 0x20; // 32 = bit 5
+            bit_port1 = 0x20; // bit 5
+            break;
         case SDLK_RIGHT:
-            return 0x40; // 32 = bit 6
+            bit_port1 = 0x40; // bit 6
+            break;
+        // port 2: player 2 controls and (unimplemented) difficulty dip switches
+        case SDLK_t: // TILT
+            bit_port2 = 0x04; // bit 2
+            break;
+        case SDLK_w: // Player 2 fire
+            bit_port2 = 0x10; // bit 4
+            break;
+        case SDLK_a: // Player 2 Left
+            bit_port2 = 0x20; // bit 5
+            break;
+        case SDLK_d: // Player 2 Right
+            bit_port2 = 0x40; // bit 6
+            break;
     }
-    return 0x00;
+
+    if(key_pressed){
+        this->out_port0 |=  bit_port0; // set the bit to 1
+        this->out_port1 |=  bit_port1; // set the bit to 1
+        this->out_port2 |=  bit_port2; // set the bit to 1
+    } else {
+        this->out_port0 &= ~bit_port0; // reset bit to 0
+        this->out_port1 &= ~bit_port1; // reset bit to 0
+        this->out_port2 &= ~bit_port2; // reset bit to 0
+    }
 }
 
 void Machine::updateScreen(){
@@ -60,7 +115,7 @@ void Machine::updateScreen(){
             for(int b=0; b<8;b++){
                 // the screen is the VRAM rotated 90 degrees counterclockwise
                 int screen_location = n-(this->screen_height-y)-this->screen_height*(8*x+b);
-                uint32_t color = ((emumem[current_loc]>>b) & 1)? 0xFF0000 : 0x0000FF;
+                uint32_t color = ((emumem[current_loc]>>b) & 1)? 0xFFFFFF : 0x000000;
                 this->textureBuffer[screen_location] = color;
             }
         }
@@ -104,10 +159,10 @@ void Machine::run(){
                 exit(0);
                 break;
             case SDL_KEYDOWN:
-                this->button_port = this->button_port | keyToByte(this->event.key.keysym);
+                keyPress(this->event.key.keysym, true);  // true = key pressed
                 break;
             case SDL_KEYUP:
-                this->button_port = this->button_port & (~keyToByte(this->event.key.keysym));
+                keyPress(this->event.key.keysym, false); // false = key depressed
                 break;
         }
         uint32_t t_current = SDL_GetTicks();
@@ -148,16 +203,17 @@ void Machine::execute_next_instruction(){
                 // more sounds (Unimplemented)
                 break;
         }
+        return;
     } else if(this->emu.memory[this->emu.pc] == 0xdb){ // IN instruction
         switch(this->emu.memory[this->emu.pc+1]){ // PORT NUMBER
             case 0:
-                this->emu.a = 0xF;
+                this->emu.a = this->out_port0;
                 break;
             case 1: // Button presses here
-                this->emu.a = this->button_port;
+                this->emu.a = this->out_port1;
                 break;
             case 2: // settings and player 2 controls (Unimplemented)
-                this->emu.a = 0x0;
+                this->emu.a = this->out_port2;
                 break;
             case 3:{
                 uint16_t v = (this->shift1<<8) | this->shift0;
@@ -165,6 +221,7 @@ void Machine::execute_next_instruction(){
                 }
                 break;
         }
+        return;
     }
 
     this->emu.execute_next_instruction();
