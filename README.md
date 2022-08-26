@@ -12,7 +12,7 @@ My emulator of the original [Space Invaders arcade machine](https://en.wikipedia
 
 ## Requirements
 
-- For copyright reasons I can not provide the ROM file for the space invaders game. You need to find and download this file yourself and place it in the same directory as the executable. The ROM can either be provided as one file ("*invaders.bin*") or as four separate files ("*invaders.e*", "*invaders.f*", "*invaders.g*" and "*invaders.h*").
+- For copyright reasons I can not provide the ROM file for the space invaders game. **You need to find and download the ROM file yourself and place it in the same directory as the executable.** The ROM can either be provided as one file (`invaders.bin`) or as four separate files (`invaders.e`, `invaders.f`, `invaders.g` and `invaders.h`).
 - g++/gcc
 - SDL 2
 
